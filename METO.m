@@ -1,7 +1,7 @@
 %% METO Algorithm
 
-function[Sol, SolutionConverganceCurve, Feval] = METO(CostFunction,nVar, VarMin, VarMax, vType, nPop, iteration, max_f_evaluation)
-%  tic   
+function[Sol, SolutionConverganceCurve, feval] = METO(CostFunction,nVar, VarMin, VarMax, vType, nPop, iteration, max_f_evaluation)
+%  tic  
  %% lower and upper bound
 
 %% Selecting the number of  bits to encode a variable
@@ -10,30 +10,17 @@ if length(VarMin) < 2 % Upper and Lower Bound on nVar variables
    VarMax = repmat(VarMax,1,nVar); 
 end
 
-TypeReal = find(vType ==1);
-TypeInteger =find(vType ==2);
-TypeBinary = find(vType ==3);
-
 bits = zeros(1,nVar); % number of bits to represent each variable
 for i = 1:nVar
-   if sum(i == TypeReal)>0
-       bits(i) =ceil(log2((VarMax(i) - VarMin(i))*10000));
-   elseif sum(i == TypeInteger)>0
+   if vType(i) == 1
+       bits(i) =ceil(log2((VarMax(i) - VarMin(i))*1000000));
+   elseif vType(i) == 2
        bits(i) =ceil(log2(VarMax(i) - VarMin(i)));
-   elseif sum(i == TypeBinary)>0
+   elseif vType(i) == 3
       bits(i) =1;  
    end  
 end
 
-% for i = 1 : length(TypeReal)  
-%   bits(i) =ceil(log2((VarMax(i) - VarMin(i))*10000)); 
-% end 
-% for i = 1 : length(TypeInteger)  
-%   bits(i) =ceil(log2(VarMax(i) - VarMin(i))); 
-% end 
-% for i = 1 : length(TypeBinary)  
-%   bits(i) =1; 
-% end 
 
 %% Defining Species 
 species =2; % number of species should be even number such as 2,4,6,8,...
@@ -129,6 +116,7 @@ end
 % Make AS-strand (ASS) for F1 generation offspring
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 [~,Idworst] = sort(F1_f(1).offspring); % This mechanism will try to evolve bad plants through ASS
 worst = round(length(Idworst)*max(0.2,rand)); % Few worst plants are selected for evolution, 
 %They will Breed with next Evolution population of SS
@@ -137,11 +125,12 @@ IdchangeF1 = ChfunNumF1(Idworst);
 
 if ~isempty(IdchangeF1) > 0 % "ASstrand" function convert SS (3'-5') to ASS (5'-3')
 
- V_MC_F1 = offspring_F1(1).offspring(Idworst,:);
+  V_MC_F1 = offspring_F1(1).offspring(Idworst,:);
+ 
 [V_MC_F1, F1tempVf, F1tempVX, feval] = ASstrand(length(IdchangeF1), V_MC_F1, offspring_F1(1).offspring(Idworst,:),...
                                          nVar, bits,CostFunction, VarMin, VarMax,  rr, selectVariable);
 f_eval=f_eval +feval; % Number of function evaluation until this point
-
+% IdchangeF1AS = IdchangeF1(F_eval);
 id = F1tempVf <= pop.(temp_P{i}).L_best.f(IdchangeF1); % replace heredity of offspring through ASS
 IdchangeF1 = ChfunNumF1(id);
 if sum(id) > 0    
@@ -204,6 +193,7 @@ end
 
 Id  = selectedF2fromF1(Index);
 IdchangeF2 = MC_F2_f <= pop.(temp_P{i}).R.(temp_f{i})(Id); % Replacing bad parents with good F2 offspring
+
 if sum(IdchangeF2 ) > 0
 pop.(temp_P{i}).R.(temp_R{i})(Id(IdchangeF2),:) = MC_F2(IdchangeF2,:);
 pop.(temp_P{i}).R.(temp_f{i})(Id(IdchangeF2),:) = MC_F2_f(IdchangeF2,:);
@@ -215,6 +205,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [~,Idworst] = sort(MC_F2_f);
+
 if length(Idworst) < 2
  worst =   1:length(Idworst); 
 else
@@ -223,7 +214,9 @@ end
 Idworst = sort(Idworst(worst));
 Idchange = Id(Idworst);
 
+
 V_MC_F2 = MC_F2(Idworst,:);
+
  if length( Idchange) > 0
 [V_MC_F2, F2tempVf, F2tempVX, feval] = ASstrand(length(Idchange), V_MC_F2, MC_F2(Idworst,:) ,...
                                          nVar, bits,CostFunction, VarMin, VarMax, rr, selectVariable);   
@@ -290,15 +283,18 @@ if iter == 1
         Sol.f = pop.(temp_P{sol_Id}).L_best.f(id_a(sol_Id),:);
         Sol.X = pop.(temp_P{sol_Id}).L_best.X(id_a(sol_Id),:);
         SolutionConverganceCurve(iter+1) = Sol.f;
+     
 else
  if F_test <= Sol.f      
          Sol.str = pop.(temp_P{sol_Id}).L_best.string(id_a(sol_Id),:);
         Sol.f  = pop.(temp_P{sol_Id}).L_best.f(id_a(sol_Id),:);
         Sol.X= pop.(temp_P{sol_Id}).L_best.X(id_a(sol_Id),:);
         SolutionConverganceCurve(iter+1) = Sol.f;
+       
 else
 %       Sol.f(iter)  = Sol.f(iter-1);
       SolutionConverganceCurve(iter+1) = SolutionConverganceCurve(iter);
+   
  end
 end
 convergence(iter,SolutionConverganceCurve,f_eval) 
@@ -347,18 +343,26 @@ temp_X = {'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8', 'X9', 'X10', 'X11', 'X
 
  
  function[f, X]= variable_value(nPop, pop, bits, nVar, CostFunction, VarMin, VarMax)
+ global vType
  f = zeros(nPop,1); % Initialize vector having function evaluations for each plant in the species 
 Var_value_pop=nan(nPop,nVar); % prelocation of the variables
 X =  Var_value_pop;     
-        for i = 1 : nVar  
-            if bits(i)  == 1   
-             X(:,i) = pop(:,i);  
-            else
-        Power = repmat(2.^fliplr(0:(bits(i)-1)),nPop,1); % 2^(n-1)
-        Var_value_pop(:,i) = sum(pop(:,((i - 1) * bits(i)) + 1 : i*bits(i)).* Power, 2); 
-        X(:,i) = repmat(VarMin(i),nPop,1)+ repmat((VarMax(i)-VarMin(i))./(2.^bits(i)-1),nPop,1).*Var_value_pop(:,i);
+        for i = 1 : nVar 
+            switch vType(i)
+                case 1
+                    Power = repmat(2.^fliplr(0:(bits(i)-1)),nPop,1); % 2^(n-1)
+                    Var_value_pop(:,i) = sum(pop(:,sum(bits(1:i-1)) + 1 : sum(bits(1:i))).* Power, 2); 
+                    X(:,i) = repmat(VarMin(i),nPop,1)+ repmat((VarMax(i)-VarMin(i))./(2.^bits(i)-1),nPop,1).*Var_value_pop(:,i);
+      
+                case 2
+                    Power = repmat(2.^fliplr(0:(bits(i)-1)),nPop,1); % 2^(n-1)
+                    Var_value_pop(:,i) = sum(pop(:,sum(bits(1:i-1)) + 1 : sum(bits(1:i))).* Power, 2); 
+                    X(:,i) = round(repmat(VarMin(i),nPop,1)+ repmat((VarMax(i)-VarMin(i))./(2.^bits(i)-1),nPop,1).*Var_value_pop(:,i));
+
+                case 3
+                    X(:,i) = pop(:,i);
             end
-        end 
+        end
 %   X = repmat(VarMin,nPop,1)+ repmat((VarMax-VarMin)./(2.^bits-1),nPop,1).*Var_value_pop;
 
 for i =1: size(X,1)
@@ -374,7 +378,7 @@ end
  for i = 1:species    
      pop.(temp_P{i}).R.(temp_R{i}) =[];
     for v = 1:nVar
-    pop.(temp_P{i}).R.(temp_R{i}) = [pop.(temp_P{i}).R.(temp_R{i}) round(rand(nPop,bits(i)))]; % random generation of the SS population 
+    pop.(temp_P{i}).R.(temp_R{i}) = [pop.(temp_P{i}).R.(temp_R{i}) round(rand(nPop,bits(v)))]; % random generation of the SS population 
     end
    [pop.(temp_P{i}).R.(temp_f{i}), pop.(temp_P{i}).R.(temp_X{i})] ...
        = variable_value(nPop, pop.(temp_P{i}).R.(temp_R{i}), bits, nVar, CostFunction, VarMin, VarMax); % Fitness and point calculation
@@ -480,35 +484,26 @@ end
 %% AntiSense Strand Generation
 function[V, tempVf, tempVX, feval] = ASstrand(Id, V, OffspringSS, nVar, bits,...
             CostFunction, VarMin, VarMax, rr, selectVariable)
-for j = 1: Id
-   
-  temp = sort(randperm(nVar, ceil(nVar*selectVariable))); 
+global vType
+% V = OffspringSS;
+ for j = 1: Id
+  temp = sort(randperm(nVar, ceil(nVar*selectVariable)));   
 
   for i = temp
-      if bits(i) ==3 % 3 is for binary variables
-            k = 1;
-            Offspring =OffspringSS(j, Bits);
-                if rand > 0.5
-                    V(j,sum(bits(1:i-1))+k)= 1-Offspring(k);
-                else
-                     V(j,sum(bits(1:i-1))+k)= Offspring(k);   
-                end
-      else
+    if vType(i) ==3 % 3 is for binary variables
+           V(j,sum(bits(1:i-1)) + 1 : sum(bits(1:i)))= 1-OffspringSS(j,sum(bits(1:i-1)) + 1 : sum(bits(1:i)));
+    else
           % This calculation is for real and integer variables
-      k = sort(randperm(bits(i), ceil(bits(i)*rr)));
-             if i ==1
-                Bits = 1:bits(1);    
-             else
-                Bits = sum(bits(1:i-1))+1:sum(bits(1:i));
-            end
-%       bits  = ((i - 1) * bits(i)) + 1 : i*bits(i);
-      Offspring =fliplr(OffspringSS(j, Bits));
-      V(j,sum(bits(1:i-1))+k)= Offspring(k);
-      end
+          k = OffspringSS(j,(sum(bits(1:i-1)) + 1 : sum(bits(1:i))));
+          id = (rand(1,length(k)) < rr);
+          k(id)= fliplr(k(id));
+          V(j,(sum(bits(1:i-1)) + 1 : sum(bits(1:i)))) = k;
+   end
   end
- feval(j,1) = ~isequal(V(j,:),OffspringSS(j,:));
+ f_eval(j,1) = ~isequal(V(j,:),OffspringSS(j,:));
  end
-feval = sum(feval);
+feval = sum(f_eval);
+% V = V(f_eval,:); 
 [tempVf, tempVX] ...
          = variable_value(Id, V, bits, nVar, CostFunction, VarMin, VarMax);
 

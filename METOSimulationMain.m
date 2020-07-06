@@ -6,17 +6,17 @@ clearvars
 % chage. Please chnage the path of METO Files before start optimizing the problem.
 addpath 'E:\METOforGitHub'
 addpath 'E:\METOforGitHub\Testfunctions'
-
+global vType
 Iteration = 250000; % Number of evolution epochs 
-max_f_evaluation =200000;
+max_f_evaluation =100000;
 
 %% Test problems:
 nPop= 100; % number of individuals in a populaiton
-nVar =10; % Number of variables in the optimizaiton Problem
+nVar =100; % Number of variables in the optimizaiton Problem
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-func_num = 1; % Change the Function number of 1 to 53
+func_num = 3; % Change the Function number of 1 to 53
 % problems 54 to 59 are for 50 variables only. For these problems you have to assign "nVar =50", above. 
 % These functions can run on 30 variables, If you replace data files from "hybrid_*****_M_D50" to "hybrid_*****_M_D30" in the "TestFunctionsMETOPaper.m" file. 
 %These data files are taken from CEC2014 and can be see in "Testfunctions" folder. 
@@ -27,6 +27,7 @@ func_num = 1; % Change the Function number of 1 to 53
 [CostFunction,  VarMin, VarMax] = TestFunctionsMETOPaper(func_num, nVar);
 % Run METO Algorithm by following command
 
+% Defining the lower and upper bound for each variables
 if length(VarMin) < 2 % Upper and Lower Bound on nVar variables
    VarMin = repmat(VarMin,1,nVar); 
    VarMax = repmat(VarMax,1,nVar); 
@@ -45,5 +46,7 @@ vType = ones(1,nVar); % In this vector, replace 1 by either 2 or 3 according to 
 % If all variables are Integer ==>(vType = [2 2 2 2 ... 2])
 
 %% Run METO
-[BestCost, ConvergenceCurve, FunctionEvaluation] = METO(CostFunction,nVar, VarMin, VarMax, vType, nPop, Iteration, max_f_evaluation);
-
+   [BestCost, ConvergenceCurve, FunctionEvaluation] = METO(CostFunction,nVar, VarMin, VarMax, vType, nPop, Iteration, max_f_evaluation);
+ figure
+ plot(ConvergenceCurve,'LineWidth',2);
+ ylabel('Function Value');
